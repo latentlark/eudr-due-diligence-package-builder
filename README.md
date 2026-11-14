@@ -175,7 +175,7 @@ If you only need the file fixed, the fixer is cheaper. If you need the whole pac
 
 **Why is the area different from my supplier's?** The Actor computes the geodesic area of the repaired polygon and writes that into `Area`; a difference above 10% is flagged.
 
-**Is my data shared?** Files stay in your own Apify storage under your retention settings. Only public map files are read: JRC, UMD (from Google Cloud Storage) and, as a backup, the Global Forest Watch copy of the JRC map. Your plot coordinates are not sent anywhere: the Actor only requests the map tiles around them.
+**Is my data shared?** Files stay in your own Apify storage under your retention settings. Only public map files are read: JRC, UMD (from Google Cloud Storage) and, as a backup, the Global Forest Watch copy of the JRC map. Your plot file is not uploaded anywhere: the Actor only requests the map pixels around each plot from those public servers.
 
 **Can the GeoJSON go straight into TRACES?** That is what it is built for, but always check the result in the EU system's own import screen before filing.
 
