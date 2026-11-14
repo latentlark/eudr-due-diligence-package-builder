@@ -1,0 +1,9 @@
+apify>=3.0,<5
+httpx>=0.27
+shapely>=2.0
+pyproj>=3.6
+rasterio>=1.4
+numpy>=1.26
+reportlab>=4.0
+pillow>=10
+pycountry>=23

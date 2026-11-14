@@ -1,0 +1,18 @@
+{
+  "actorSpecification": 1,
+  "name": "eudr-due-diligence-package-builder",
+  "title": "EUDR Due-Diligence Package Builder: GeoJSON + Deforestation PDF",
+  "description": "Turn a supplier CSV, KML or GeoJSON into an EUDR filing package: geometry repaired to the EU Information System rules, each plot screened against the JRC 2020 forest map and post-2020 tree-cover loss, an evidence PDF per plot, a clean GeoJSON and a DDS draft for the TRACES Operator API.",
+  "version": "0.1",
+  "buildTag": "latest",
+  "defaultMemoryMbytes": 512,
+  "minMemoryMbytes": 512,
+  "maxMemoryMbytes": 1024,
+  "dockerfile": "../Dockerfile",
+  "readme": "../README.md",
+  "input": "./input_schema.json",
+  "output": "./output_schema.json",
+  "storages": {
+    "dataset": "./dataset_schema.json"
+  }
+}

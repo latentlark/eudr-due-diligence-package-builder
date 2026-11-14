@@ -1,0 +1,37 @@
+{
+  "actorOutputSchemaVersion": 1,
+  "title": "EUDR due-diligence package",
+  "description": "Per-plot screening rows plus the files in the key-value store.",
+  "properties": {
+    "plots": {
+      "type": "string",
+      "title": "Plots",
+      "description": "One row per plot: risk flag, forest and loss numbers, fixes, PDF link.",
+      "template": "{{links.apiDefaultDatasetUrl}}/items?view=overview"
+    },
+    "cleanGeojson": {
+      "type": "string",
+      "title": "Clean GeoJSON",
+      "description": "Geolocation file repaired to the EU Information System rules (split into _partN files when large).",
+      "template": "{{links.apiDefaultKeyValueStoreUrl}}/records/EUDR_CLEAN.geojson"
+    },
+    "ddsDraft": {
+      "type": "string",
+      "title": "DDS draft (Operator API V4 shape)",
+      "description": "Not submitted. Lists what the operator must fill.",
+      "template": "{{links.apiDefaultKeyValueStoreUrl}}/records/DDS_DRAFT.json"
+    },
+    "packageZip": {
+      "type": "string",
+      "title": "Everything (ZIP)",
+      "description": "Clean GeoJSON, DDS draft, fix log and all evidence PDFs.",
+      "template": "{{links.apiDefaultKeyValueStoreUrl}}/records/PACKAGE.zip"
+    },
+    "summary": {
+      "type": "string",
+      "title": "Run summary",
+      "description": "Totals, data sources and versions.",
+      "template": "{{links.apiDefaultKeyValueStoreUrl}}/records/SUMMARY.json"
+    }
+  }
+}

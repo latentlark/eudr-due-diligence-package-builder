@@ -1,0 +1,288 @@
+{
+  "title": "EUDR Due-Diligence Package Builder input",
+  "type": "object",
+  "schemaVersion": 1,
+  "properties": {
+    "plotFile": {
+      "title": "Supplier plot file",
+      "type": "string",
+      "editor": "fileupload",
+      "sectionCaption": "Plots",
+      "description": "Upload a CSV, KML, KMZ or GeoJSON file from your supplier (or paste a direct download link). CSV needs latitude + longitude columns (one row per point, or several rows with the same plot ID for a polygon) or a WKT column. Comma or semicolon separated; decimal commas are fine."
+    },
+    "plotFileUrls": {
+      "title": "More file links",
+      "type": "array",
+      "editor": "stringList",
+      "description": "Optional extra direct download links (CSV, KML/KMZ, GeoJSON). All files are merged into one package."
+    },
+    "plotsText": {
+      "title": "Paste plots (CSV, KML or GeoJSON text)",
+      "type": "string",
+      "editor": "textarea",
+      "description": "Optional: paste the file content instead of uploading. Handy from n8n, Make or Zapier."
+    },
+    "geojson": {
+      "title": "GeoJSON plots (JSON)",
+      "type": "object",
+      "editor": "json",
+      "prefill": {
+        "type": "FeatureCollection",
+        "features": [
+          {
+            "type": "Feature",
+            "properties": {
+              "plot_id": "BR-DEMO-1",
+              "producer": "Example Ranch (demo)",
+              "country": "Brazil",
+              "farm": "Demo plot, Rondonia",
+              "area": "80"
+            },
+            "geometry": {
+              "type": "Polygon",
+              "coordinates": [
+                [
+                  [
+                    -63.009222,
+                    -9.509304
+                  ],
+                  [
+                    -63.001024,
+                    -9.509304
+                  ],
+                  [
+                    -63.001024,
+                    -9.501164
+                  ],
+                  [
+                    -63.009222,
+                    -9.501164
+                  ]
+                ]
+              ]
+            }
+          }
+        ]
+      },
+      "description": "Optional: a GeoJSON FeatureCollection, Feature or geometry. The prefilled demo is one 81 ha cattle plot in Rondonia (Brazil) with an open ring and supplier-style column names, so you can see the repairs, the screening and the PDF for one plot."
+    },
+    "commodity": {
+      "title": "Commodity",
+      "type": "string",
+      "editor": "select",
+      "sectionCaption": "Shipment details (for the DDS draft)",
+      "enum": [
+        "cattle",
+        "cocoa",
+        "coffee",
+        "oil_palm",
+        "rubber",
+        "soya",
+        "wood"
+      ],
+      "enumTitles": [
+        "Cattle",
+        "Cocoa",
+        "Coffee",
+        "Oil palm",
+        "Rubber",
+        "Soya",
+        "Wood"
+      ],
+      "prefill": "cattle",
+      "description": "Relevant commodity. Cattle allows point plots over 4 ha. Also used to suggest an HS heading if you leave it empty."
+    },
+    "defaultCountry": {
+      "title": "Default country of production",
+      "type": "string",
+      "editor": "textfield",
+      "description": "ISO 2-letter code (e.g. GH, CI, BR) or country name, used for plots without a country."
+    },
+    "defaultProducerName": {
+      "title": "Default producer name",
+      "type": "string",
+      "editor": "textfield",
+      "description": "Used for plots without a producer name."
+    },
+    "activityType": {
+      "title": "Activity type",
+      "type": "string",
+      "editor": "select",
+      "enum": [
+        "IMPORT",
+        "EXPORT",
+        "DOMESTIC"
+      ],
+      "description": "DDS statement.activityType. Leave empty to fill it yourself."
+    },
+    "operatorRole": {
+      "title": "Operator role",
+      "type": "string",
+      "editor": "select",
+      "enum": [
+        "OPERATOR",
+        "REPRESENTATIVE_OPERATOR"
+      ],
+      "description": "DDS operatorRole."
+    },
+    "hsHeading": {
+      "title": "HS heading",
+      "type": "string",
+      "editor": "textfield",
+      "pattern": "^[0-9]{2,10}$",
+      "description": "2-10 digit HS code. Empty = a default suggested from the commodity, flagged for you to confirm."
+    },
+    "descriptionOfGoods": {
+      "title": "Description of goods",
+      "type": "string",
+      "editor": "textfield",
+      "maxLength": 150,
+      "description": "DDS descriptionOfGoods (max 150 characters)."
+    },
+    "netWeightKg": {
+      "title": "Net weight (kg)",
+      "type": "number",
+      "editor": "number",
+      "minimum": 0,
+      "description": "Mandatory in the DDS for IMPORT and EXPORT."
+    },
+    "countryOfActivity": {
+      "title": "EU country of activity",
+      "type": "string",
+      "editor": "textfield",
+      "pattern": "^[A-Za-z]{2}$",
+      "description": "ISO 2-letter code of the EU Member State."
+    },
+    "borderCrossCountry": {
+      "title": "Border-crossing country",
+      "type": "string",
+      "editor": "textfield",
+      "pattern": "^[A-Za-z]{2}$",
+      "description": "Country of entry (import) or exit (export)."
+    },
+    "internalReference": {
+      "title": "Your internal reference",
+      "type": "string",
+      "editor": "textfield",
+      "maxLength": 46,
+      "description": "Optional internalReferenceNumber for the DDS draft."
+    },
+    "geoLocationConfidential": {
+      "title": "Geolocation confidential",
+      "type": "boolean",
+      "editor": "checkbox",
+      "nullable": true,
+      "description": "DDS geoLocationConfidential. Leave unset to decide later (it is listed in operatorMustFill)."
+    },
+    "runScreening": {
+      "title": "Screen for deforestation",
+      "type": "boolean",
+      "editor": "checkbox",
+      "default": true,
+      "sectionCaption": "Screening",
+      "description": "Check every plot against the JRC Global Forest Cover 2020 map and Hansen tree-cover loss 2021-2025. Free public data, no API key."
+    },
+    "highRiskMinHa": {
+      "title": "High risk if forest-2020 lost after 2020 is at least (ha)",
+      "type": "number",
+      "editor": "number",
+      "minimum": 0,
+      "default": 0.5,
+      "description": "Absolute threshold. Any smaller amount still gives \"needs review\"."
+    },
+    "highRiskPct": {
+      "title": "...or at least this % of the plot",
+      "type": "number",
+      "editor": "number",
+      "minimum": 0,
+      "maximum": 100,
+      "default": 2,
+      "description": "Relative threshold for high risk."
+    },
+    "reviewForestPct": {
+      "title": "Needs review if forest in 2020 covers at least (%)",
+      "type": "number",
+      "editor": "number",
+      "minimum": 0,
+      "maximum": 100,
+      "default": 10,
+      "description": "Plots that were largely forest in 2020 deserve a closer look even without detected loss (agroforestry and tree crops can map as forest)."
+    },
+    "generatePdf": {
+      "title": "Evidence PDF per plot",
+      "type": "boolean",
+      "editor": "checkbox",
+      "default": true,
+      "sectionCaption": "Output",
+      "description": "Write one evidence PDF per plot (map thumbnail, forest and loss numbers, fixes, sources). Turn off for a faster, smaller run."
+    },
+    "makeZip": {
+      "title": "Also save everything as PACKAGE.zip",
+      "type": "boolean",
+      "editor": "checkbox",
+      "default": true,
+      "description": "Bundle the clean GeoJSON, DDS draft, fix log, summary and all PDFs into PACKAGE.zip."
+    },
+    "removeDuplicates": {
+      "title": "Remove duplicate plots from the clean file",
+      "type": "boolean",
+      "editor": "checkbox",
+      "default": true,
+      "description": "The EU system rejects duplicates. Off = keep and only warn."
+    },
+    "sourceCrs": {
+      "title": "Source coordinate system (only for metres)",
+      "type": "string",
+      "editor": "textfield",
+      "description": "Only if your file has coordinates in metres (e.g. UTM). Example: EPSG:32630. Leave empty for normal latitude/longitude."
+    },
+    "maxPlotsPerFile": {
+      "title": "Max plots per GeoJSON file",
+      "type": "integer",
+      "editor": "number",
+      "minimum": 1,
+      "maximum": 10000,
+      "default": 1000,
+      "description": "Clean output is split above this (EU: 1,000 producers per commodity line)."
+    },
+    "maxOutputFileMb": {
+      "title": "Max clean file size (MB)",
+      "type": "number",
+      "editor": "number",
+      "minimum": 1,
+      "maximum": 25,
+      "default": 24,
+      "description": "Clean GeoJSON is split below the EU 25 MB limit."
+    },
+    "maxPlots": {
+      "title": "Max plots to process",
+      "type": "integer",
+      "editor": "number",
+      "minimum": 1,
+      "maximum": 10000,
+      "default": 200,
+      "prefill": 10,
+      "sectionCaption": "Limits",
+      "description": "Hard cap on plots per run (cost control). Extra plots are skipped and not charged."
+    },
+    "maxInputFileMb": {
+      "title": "Max input file size (MB)",
+      "type": "number",
+      "editor": "number",
+      "minimum": 1,
+      "maximum": 200,
+      "default": 50,
+      "description": "Larger files are refused."
+    },
+    "concurrency": {
+      "title": "Parallel workers",
+      "type": "integer",
+      "editor": "number",
+      "minimum": 1,
+      "maximum": 8,
+      "default": 4,
+      "description": "Plots handled in parallel (PDFs and statistics)."
+    }
+  },
+  "required": []
+}

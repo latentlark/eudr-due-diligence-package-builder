@@ -1,0 +1,292 @@
+{
+  "actorSpecification": 1,
+  "fields": {
+    "type": "object",
+    "properties": {
+      "plotId": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "source": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "producerName": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "producerCountry": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "productionPlace": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "geometryType": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "screeningError": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "screenedAt": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "cleanFileKey": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "pdfKey": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "pdfUrl": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "geometryStatus": {
+        "type": "string"
+      },
+      "riskFlag": {
+        "type": "string"
+      },
+      "screeningStatus": {
+        "type": "string"
+      },
+      "riskReasons": {
+        "type": "array"
+      },
+      "fixes": {
+        "type": "array"
+      },
+      "warnings": {
+        "type": "array"
+      },
+      "errors": {
+        "type": "array"
+      },
+      "fixCount": {
+        "type": "integer"
+      },
+      "sourceRow": {
+        "type": [
+          "integer",
+          "null"
+        ]
+      },
+      "vertexCount": {
+        "type": [
+          "integer",
+          "null"
+        ]
+      },
+      "sourceDecimals": {
+        "type": [
+          "integer",
+          "null"
+        ]
+      },
+      "centroid": {
+        "type": [
+          "array",
+          "null"
+        ]
+      },
+      "bbox": {
+        "type": [
+          "array",
+          "null"
+        ]
+      },
+      "lossByYear": {
+        "type": [
+          "object",
+          "null"
+        ]
+      },
+      "hansenTiles": {
+        "type": [
+          "array",
+          "null"
+        ]
+      },
+      "charged": {
+        "type": "boolean"
+      },
+      "hansenLastYear": {
+        "type": "integer"
+      },
+      "areaHa": {
+        "type": [
+          "number",
+          "null"
+        ]
+      },
+      "forest2020Ha": {
+        "type": [
+          "number",
+          "null"
+        ]
+      },
+      "forest2020Pct": {
+        "type": [
+          "number",
+          "null"
+        ]
+      },
+      "lossPost2020Ha": {
+        "type": [
+          "number",
+          "null"
+        ]
+      },
+      "lossPost2020Pct": {
+        "type": [
+          "number",
+          "null"
+        ]
+      },
+      "forestLossPost2020Ha": {
+        "type": [
+          "number",
+          "null"
+        ]
+      },
+      "forestLossPost2020Pct": {
+        "type": [
+          "number",
+          "null"
+        ]
+      },
+      "lossPre2021Ha": {
+        "type": [
+          "number",
+          "null"
+        ]
+      },
+      "analysedHa": {
+        "type": [
+          "number",
+          "null"
+        ]
+      },
+      "gridResolutionM": {
+        "type": [
+          "number",
+          "null"
+        ]
+      },
+      "screeningSeconds": {
+        "type": [
+          "number",
+          "null"
+        ]
+      }
+    }
+  },
+  "views": {
+    "overview": {
+      "title": "Plots",
+      "transformation": {
+        "fields": [
+          "plotId",
+          "riskFlag",
+          "geometryStatus",
+          "producerName",
+          "producerCountry",
+          "geometryType",
+          "areaHa",
+          "forest2020Pct",
+          "lossPost2020Ha",
+          "forestLossPost2020Ha",
+          "fixCount",
+          "errors",
+          "pdfUrl"
+        ]
+      },
+      "display": {
+        "component": "table",
+        "properties": {
+          "plotId": {
+            "label": "Plot"
+          },
+          "riskFlag": {
+            "label": "Risk flag"
+          },
+          "geometryStatus": {
+            "label": "Geometry"
+          },
+          "producerName": {
+            "label": "Producer"
+          },
+          "producerCountry": {
+            "label": "Country"
+          },
+          "geometryType": {
+            "label": "Type"
+          },
+          "areaHa": {
+            "label": "Area (ha)",
+            "format": "number"
+          },
+          "forest2020Pct": {
+            "label": "Forest 2020 %",
+            "format": "number"
+          },
+          "lossPost2020Ha": {
+            "label": "Loss 2021+ (ha)",
+            "format": "number"
+          },
+          "forestLossPost2020Ha": {
+            "label": "Forest lost 2021+ (ha)",
+            "format": "number"
+          },
+          "fixCount": {
+            "label": "Fixes",
+            "format": "number"
+          },
+          "errors": {
+            "label": "Errors",
+            "format": "array"
+          },
+          "pdfUrl": {
+            "label": "Evidence PDF",
+            "format": "link"
+          }
+        }
+      }
+    },
+    "all": {
+      "title": "All fields",
+      "transformation": {},
+      "display": {
+        "component": "table"
+      }
+    }
+  }
+}

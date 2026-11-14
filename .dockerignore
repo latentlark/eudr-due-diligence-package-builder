@@ -1,0 +1,9 @@
+.venv
+__pycache__
+storage
+output
+.pytest_cache
+*.pyc
+tests/fixtures/*.zip
+PLAN.md
+scripts/measure.py
