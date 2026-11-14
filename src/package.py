@@ -20,6 +20,7 @@ from .validate import validate_fc
 
 VERSION = '0.1.0'
 EVENT = 'plot-processed'
+PLOT_SCREEN_TIMEOUT = 120.0  # secs per plot (normal: 1-5 s); slower means the remote rasters are degraded
 
 Put = Callable[[str, bytes, str], Awaitable[None]]
 Push = Callable[[dict], Awaitable[None]]
@@ -139,12 +140,17 @@ async def build_package(cfg: dict, sources: list[tuple[str, bytes]], put: Put, p
                 return
             sr = None
             if do_screen and plot.get('screenShape') is not None:
+                per_plot = PLOT_SCREEN_TIMEOUT if left is None else max(5.0, min(PLOT_SCREEN_TIMEOUT, left))
                 try:
-                    sr = await asyncio.wait_for(asyncio.to_thread(screener.screen, plot['screenShape']),
-                                                timeout=max(5.0, left) if left is not None else None)
+                    sr = await asyncio.wait_for(asyncio.to_thread(screener.screen, plot['screenShape']), timeout=per_plot)
                 except asyncio.TimeoutError:
                     from .screening import ScreenResult
-                    sr = ScreenResult(status='error', error='screening did not finish within the run time budget (not charged)')
+                    # A read this slow means the public forest maps are degraded: stop screening the rest (circuit
+                    # breaker) so the run still finishes with every plot listed, unscreened plots not charged.
+                    if not screener.down:
+                        screener.down = (f'forest map source too slow (no answer within {per_plot:.0f}s); plot not screened '
+                                         'and not charged. Re-run later.')
+                    sr = ScreenResult(status='error', error=screener.down)
             flag, reasons = classify(sr, not plot['errors'], plot.get('geometryType') in ('Point', 'MultiPoint'), th) \
                 if plot.get('shape') is not None else ('not_screened', ['no usable geometry'])
             if not do_screen and plot.get('shape') is not None:
