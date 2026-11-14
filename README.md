@@ -68,6 +68,9 @@ The clean file is re-checked by an independent validator before it is saved (`cl
 |---|---|---|---|
 | Forest on 31 Dec 2020 | EC JRC Global Forest Cover 2020, **V4** (single global Cloud-Optimized GeoTIFF on the JRC open-data server) | ~10 m | % and ha of the plot that was forest at the EUDR cut-off |
 | Tree-cover loss 2021-2025 | Hansen/UMD/Google/USGS/NASA **Global Forest Change GFC-2025-v1.13**, `lossyear` | ~30 m | ha of loss after the cut-off, per year |
+| Forest on 31 Dec 2020, **backup** | Hansen/UMD GFC-2025-v1.13 `treecover2000` at 10% canopy or more (the FAO forest threshold) minus any loss in 2001-2020 | ~30 m | Used only for plots where the JRC server is slow or unreachable |
+
+**Backup forest map.** The JRC open-data server is sometimes slow or unreachable. When that happens, the plot is still screened with the backup forest-2020 layer above, read from the same public Google Cloud bucket as the loss data (CC BY 4.0). Every row says which map was used in `forest2020Source` (`jrc_gfc2020_v4` or `hansen_treecover2000_minus_loss`), with the reason in `jrcError`, and the PDF and `SUMMARY.json` (`forest2020Sources`) say so too. The backup is coarser and does not count regrowth, so for filing, re-run fallback plots later to get the JRC figure. A plot is `not_screened` and free only if both sources fail.
 
 Both are read with HTTP range requests, so only a few hundred kB around each plot are downloaded. No account or key. Points are screened as a circle with the declared area (4 ha if missing), and this is stated in the PDF.
 
@@ -76,7 +79,7 @@ Both are read with HTTP range requests, so only a few hundred kB around each plo
 - `high_risk`: forest in 2020 **and** loss after 2020 on at least 0.5 ha or 2% of the plot.
 - `needs_review`: any smaller overlap of 2020 forest and post-2020 loss, any post-2020 loss outside the 2020 forest map, at least 10% of the plot forested in 2020, unresolved geometry errors, or partial data.
 - `likely_compliant`: none of the above.
-- `not_screened`: no usable geometry or the data could not be read (not charged).
+- `not_screened`: no usable geometry, or neither the JRC map nor the backup could be read (not charged).
 
 ## What comes out
 
@@ -92,6 +95,7 @@ Both are read with HTTP range requests, so only a few hundred kB around each plo
   "geometryType": "Polygon",
   "areaHa": 81.0424,
   "forest2020Pct": 62.09,
+  "forest2020Source": "jrc_gfc2020_v4",
   "lossPost2020Ha": 2.3627,
   "forestLossPost2020Ha": 1.9562,
   "lossByYear": {"2022": 2.3627},
@@ -119,7 +123,7 @@ The `pdfUrl` in each row and the `links` in `SUMMARY.json` are signed links: the
 
 | Event | Price |
 |---|---|
-| Plot processed (repaired, screened, PDF) | **$0.03** |
+| Plot processed (`plot-processed`: repaired, screened, PDF) | **$0.03** |
 
 Platform usage is included in the price. Plots without usable geometry, plots whose map data could not be read, and plots over your **Max plots** cap are not charged. With screening turned off (fix-only), each plot with usable geometry is still one plot processed. Examples: 50-plot cooperative file **$1.50**; 1,000 plots **$30**. Set a maximum cost per run in the run options and the Actor stops cleanly at that limit.
 
@@ -170,7 +174,7 @@ If you only need the file fixed, the fixer is cheaper. If you need the whole pac
 
 **Why is the area different from my supplier's?** The Actor computes the geodesic area of the repaired polygon and writes that into `Area`; a difference above 10% is flagged.
 
-**Is my data shared?** Files stay in your own Apify storage under your retention settings. Only the public JRC and UMD map files are read.
+**Is my data shared?** Files stay in your own Apify storage under your retention settings. Only the public JRC and UMD map files are read (UMD files from Google Cloud Storage).
 
 **Can the GeoJSON go straight into TRACES?** That is what it is built for, but always check the result in the EU system's own import screen before filing.
 

@@ -16,7 +16,8 @@ from . import dds as D
 from .geometry import cross_plot_checks, repair_plot
 from .parse import parse_any, parse_geojson
 from .report import build_pdf
-from .screening import HANSEN_LAST_YEAR, HANSEN_NAME, HANSEN_VERSION, JRC_NAME, JRC_URL, HANSEN_BASE, Screener, classify
+from .screening import (FALLBACK_NAME, HANSEN_BASE, HANSEN_LAST_YEAR, HANSEN_NAME, HANSEN_VERSION, JRC_NAME, JRC_URL, SRC_FALLBACK,
+                        SRC_JRC, ScreenResult, Screener, classify)
 from .validate import validate_fc
 
 VERSION = '0.1.0'
@@ -169,13 +170,20 @@ async def build_package(cfg: dict, sources: list[tuple[str, bytes]], put: Put, p
                 try:
                     sr = await asyncio.wait_for(_in_daemon(screener.screen, plot['screenShape']), timeout=per_plot)
                 except asyncio.TimeoutError:
-                    from .screening import ScreenResult
-                    # A read this slow means the public forest maps are degraded: stop screening the rest (circuit
-                    # breaker) so the run still finishes with every plot listed, unscreened plots not charged.
-                    if not screener.down:
-                        screener.down = (f'forest map source too slow (no answer within {per_plot:.0f}s); plot not screened '
-                                         'and not charged. Re-run later.')
-                    sr = ScreenResult(status='error', error=screener.down)
+                    # The JRC server is this slow: use the Hansen fallback for this and every later plot.
+                    screener.mark_jrc_down(f'JRC map too slow (no answer within {per_plot:.0f}s)')
+                    left = time_left()
+                    retry = PLOT_SCREEN_TIMEOUT if left is None else max(5.0, min(PLOT_SCREEN_TIMEOUT, left))
+                    try:
+                        sr = await asyncio.wait_for(_in_daemon(screener.screen, plot['screenShape'], 0.25, True), timeout=retry)
+                        sr.jrcError = sr.jrcError or screener.jrc_down
+                    except asyncio.TimeoutError:
+                        # Both map sources are degraded: stop screening the rest (circuit breaker) so the run still
+                        # finishes with every plot listed; unscreened plots are not charged.
+                        if not screener.down:
+                            screener.down = ('forest map sources too slow (JRC and the Hansen fallback); plot not screened '
+                                             'and not charged. Re-run later.')
+                        sr = ScreenResult(status='error', error=screener.down)
             flag, reasons = classify(sr, not plot['errors'], plot.get('geometryType') in ('Point', 'MultiPoint'), th) \
                 if plot.get('shape') is not None else ('not_screened', ['no usable geometry'])
             if not do_screen and plot.get('shape') is not None:
@@ -246,10 +254,16 @@ async def build_package(cfg: dict, sources: list[tuple[str, bytes]], put: Put, p
         'generatedAt': generated + 'Z', 'version': VERSION, 'plotsFound': len(raws) + skipped, 'plotsProcessed': len(rows),
         'plotsCharged': charged, 'plotsSkippedByCap': skipped, 'plotsSkippedTimeLimit': timed_out,
         'screeningSourceDown': (screener.down if screener is not None else None), 'inputProblems': problems,
+        'plotsNotScreenedMapError': sum(r.get('screeningStatus') == 'error' for r in rows),
+        'forest2020Sources': ({SRC_JRC: screener.source_counts[SRC_JRC], SRC_FALLBACK: screener.source_counts[SRC_FALLBACK]}
+                              if screener is not None else None),
+        'jrcUnavailable': (screener.jrc_down if screener is not None else None),
         'geometry': {s: sum(p['geometryStatus'] == s for p in done) for s in ('ok', 'fixed', 'needs_attention')},
         'risk': flags, 'cleanFiles': clean_keys, 'cleanPlots': len(clean), 'needsAttentionPlots': len(attention),
         'cleanFileValidation': validation or 'passed', 'ddsDraftParts': len(dds), 'pdfCount': len(pdf_keys),
         'dataSources': {'forest2020': {'name': JRC_NAME, 'url': JRC_URL},
+                        'forest2020Fallback': {'name': FALLBACK_NAME, 'baseUrl': HANSEN_BASE,
+                                               'usedWhen': 'the JRC server is slow or unreachable; see forest2020Source per plot'},
                         'lossAfter2020': {'name': HANSEN_NAME, 'version': HANSEN_VERSION, 'baseUrl': HANSEN_BASE, 'lastYear': HANSEN_LAST_YEAR}},
         'thresholds': th, 'seconds': round(time.time() - t_start, 2),
         'disclaimer': 'Screening evidence only, not legal advice. The operator remains responsible for the EUDR due-diligence conclusion.',
@@ -306,7 +320,7 @@ def make_row(plot: dict, sr, flag: str, reasons: list[str]) -> dict:
     if sr is not None:
         row.update({k: getattr(sr, k) for k in ('forest2020Ha', 'forest2020Pct', 'lossPost2020Ha', 'lossPost2020Pct',
                                                 'forestLossPost2020Ha', 'forestLossPost2020Pct', 'lossPre2021Ha', 'lossByYear',
-                                                'analysedHa', 'gridResolutionM', 'hansenTiles')})
+                                                'analysedHa', 'gridResolutionM', 'hansenTiles', 'forest2020Source', 'jrcError')})
         row.update({'screeningStatus': sr.status, 'screeningError': sr.error, 'screenedAt': sr.readAt, 'screeningSeconds': sr.seconds})
     else:
         row['screeningStatus'] = 'skipped'

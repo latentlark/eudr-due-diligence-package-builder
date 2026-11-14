@@ -13,7 +13,7 @@ from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import mm
 from reportlab.platypus import Image as RLImage, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
-from .screening import HANSEN_BASE, HANSEN_NAME, HANSEN_VERSION, JRC_NAME, JRC_URL
+from .screening import FALLBACK_NAME, HANSEN_BASE, HANSEN_NAME, HANSEN_VERSION, JRC_NAME, JRC_URL, SRC_FALLBACK
 
 FLAG_COLORS = {'likely_compliant': '#1a7f37', 'needs_review': '#b35900', 'high_risk': '#c62828', 'not_screened': '#555555'}
 FLAG_TEXT = {'likely_compliant': 'LIKELY COMPLIANT (screening)', 'needs_review': 'NEEDS REVIEW',
@@ -95,6 +95,8 @@ def build_pdf(row: dict[str, Any], plot: dict, sr, run_meta: dict) -> bytes:
     small = ParagraphStyle('small', parent=ss['BodyText'], fontSize=8, leading=10)
     body = ParagraphStyle('body', parent=ss['BodyText'], fontSize=9, leading=11.5)
     flag = row.get('riskFlag', 'not_screened')
+    fb = row.get('forest2020Source') == SRC_FALLBACK
+    flab = 'Hansen fallback' if fb else 'JRC'
     el: list = [
         Paragraph(f"EUDR plot screening evidence: <b>{_esc(row['plotId'])}</b>", ss['Title']),
         Paragraph(f"<font color='{FLAG_COLORS[flag]}'><b>{FLAG_TEXT[flag]}</b></font> &nbsp; Geometry: <b>{row['geometryStatus']}</b>"
@@ -104,11 +106,11 @@ def build_pdf(row: dict[str, Any], plot: dict, sr, run_meta: dict) -> bytes:
     png = thumbnail_png(sr, plot.get('shape'), plot.get('screenShape'))
     if png:
         img = RLImage(io.BytesIO(png), width=78 * mm, height=78 * mm, kind='proportional')
-        legend = Paragraph("Map (analysis grid ~%s m): <font color='#4d9221'><b>green</b></font> = forest 2020 (JRC), "
+        legend = Paragraph("Map (analysis grid ~%s m): <font color='#4d9221'><b>green</b></font> = forest 2020 (%s), "
                            "<font color='#e31a1c'><b>red</b></font> = tree-cover loss 2021-%s (Hansen), "
                            "<font color='#9b8460'><b>tan</b></font> = loss 2001-2020, "
                            "<font color='#1f3cc8'><b>blue</b></font> = plot boundary%s." % (
-                               row.get('gridResolutionM') or '?', row.get('hansenLastYear', ''),
+                               row.get('gridResolutionM') or '?', flab, row.get('hansenLastYear', ''),
                                ' (circle approximation around the point)' if row.get('geometryType') in ('Point', 'MultiPoint') else ''), small)
         map_cell = [img, legend]
     else:
@@ -118,7 +120,7 @@ def build_pdf(row: dict[str, Any], plot: dict, sr, run_meta: dict) -> bytes:
         ['Production place', _esc(row.get('productionPlace') or '')], ['Producer', _esc(row.get('producerName') or '-')],
         ['Country', row.get('producerCountry') or '-'], ['Geometry', f"{row.get('geometryType')} ({row.get('vertexCount')} vertices)"],
         ['Area (ha)', _num(row.get('areaHa'))], ['Centroid (lon, lat)', ', '.join(f'{v:.6f}' for v in row.get('centroid') or []) or '-'],
-        ['Forest 2020 (JRC)', f"{_num(row.get('forest2020Ha'))} ha / {_num(row.get('forest2020Pct'))}%"],
+        [f'Forest 2020 ({flab})', f"{_num(row.get('forest2020Ha'))} ha / {_num(row.get('forest2020Pct'))}%"],
         ['Loss 2021+ (Hansen)', f"{_num(row.get('lossPost2020Ha'))} ha / {_num(row.get('lossPost2020Pct'))}%"],
         ['Forest-2020 lost 2021+', f"{_num(row.get('forestLossPost2020Ha'))} ha / {_num(row.get('forestLossPost2020Pct'))}%"],
         ['Loss 2001-2020 (info)', f"{_num(row.get('lossPre2021Ha'))} ha"],
@@ -137,13 +139,20 @@ def build_pdf(row: dict[str, Any], plot: dict, sr, run_meta: dict) -> bytes:
     if not any(row.get(k) for k in ('fixes', 'warnings', 'errors')):
         el.append(Paragraph('No changes needed.', body))
     el += [Spacer(1, 2 * mm), Paragraph('<b>Data sources and method</b>', ss['Heading4'])]
+    jrc_src = (f'{JRC_NAME}. File: {JRC_URL} (read {row.get("screenedAt") or "-"} UTC by HTTP range request). Value 1 = forest on 31 Dec 2020. '
+               'Citation: European Commission, Joint Research Centre, Global map of forest cover 2020. Free, Copernicus licence.')
+    fb_src = (f'FOREST 2020 FROM THE FALLBACK SOURCE: the JRC map could not be read ({row.get("jrcError") or "server unavailable"}). '
+              f'{FALLBACK_NAME}: tiles {", ".join(row.get("hansenTiles") or []) or "-"} from {HANSEN_BASE}, read {row.get("screenedAt") or "-"} UTC. '
+              'Forest = canopy cover of at least 10% in 2000 (FAO forest canopy threshold) with no tree-cover loss in 2001-2020 '
+              '(~30 m; coarser than JRC and does not count regrowth). Re-run later to get the JRC-based figure for filing. '
+              'Citation: Hansen et al. (2013) Science 342:850-853. CC BY 4.0.')
     src = [
-        f'{JRC_NAME}. File: {JRC_URL} (read {row.get("screenedAt") or "-"} UTC by HTTP range request). Value 1 = forest on 31 Dec 2020. '
-        'Citation: European Commission, Joint Research Centre, Global map of forest cover 2020. Free, Copernicus licence.',
+        fb_src if fb else jrc_src,
         f'{HANSEN_NAME}. Tiles {", ".join(row.get("hansenTiles") or []) or "-"} from {HANSEN_BASE}. Values 21-{row.get("hansenLastYear", 25) - 2000} = loss in 2021-{row.get("hansenLastYear", "")}. '
         'Citation: Hansen et al. (2013) Science 342:850-853. CC BY 4.0.',
-        'Method: both rasters are sampled on one grid (JRC ~10 m pixels; Hansen 30 m pixels sampled nearest-neighbour at the same centres). '
-        'Pixel areas are computed on the sphere; plot pixels are those whose centres fall inside the boundary.',
+        ('Method: forest and loss are both read on the native Hansen 30 m grid. ' if fb else
+         'Method: both rasters are sampled on one grid (JRC ~10 m pixels; Hansen 30 m pixels sampled nearest-neighbour at the same centres). ')
+        + 'Pixel areas are computed on the sphere; plot pixels are those whose centres fall inside the boundary.',
         f"Geometry rules: EUDR Information System GeoJSON File Description (updated 17 Aug 2026). Thresholds: high risk if forest-2020 lost "
         f"after 2020 >= {run_meta['thresholds']['highRiskMinHa']} ha or >= {run_meta['thresholds']['highRiskPct']}% of the plot; "
         f"review if any post-2020 loss or forest 2020 >= {run_meta['thresholds']['reviewForestPct']}%.",

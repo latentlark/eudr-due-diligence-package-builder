@@ -1,0 +1,9 @@
+plot_id;farmer;country;area_ha;latitude;longitude
+CO-001;Finca Uno;Colombia;1,2;4,812345;-75,612345
+CO-002;Finca Dos;CO;0,8;-75,623456;4,823456
+CO-003;Finca Tres;CO;6,0;4,834567;-75,634567
+CO-004;Finca Cuatro;CO;;4.84567;-75.64567
+CO-010;Finca Diez;CO;;4,800737;-75,651775
+CO-010;Finca Diez;CO;;4,800737;-75,650693
+CO-010;Finca Diez;CO;;4,801731;-75,650693
+CO-010;Finca Diez;CO;;4,801731;-75,651775

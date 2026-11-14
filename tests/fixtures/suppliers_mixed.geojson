@@ -1,0 +1,297 @@
+{
+ "type": "FeatureCollection",
+ "features": [
+  {
+   "type": "Feature",
+   "properties": {
+    "ProducerName": "Coop A Farmer 1",
+    "ProducerCountry": "GH",
+    "ProductionPlace": "GH-001 Farm",
+    "plot_id": "GH-001"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       -2.105325,
+       6.300511
+      ],
+      [
+       -2.103699,
+       6.300511
+      ],
+      [
+       -2.103699,
+       6.301957
+      ],
+      [
+       -2.105325,
+       6.301957
+      ],
+      [
+       -2.105325,
+       6.300511
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "producer_name": "Coop A Farmer 2",
+    "country": "Ghana",
+    "area": "2,5",
+    "plot_id": "GH-002"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       -2.113068,
+       6.309198
+      ],
+      [
+       -2.111622,
+       6.309198
+      ],
+      [
+       -2.111622,
+       6.310554
+      ],
+      [
+       -2.113068,
+       6.310554
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "ProducerName": "Coop A Farmer 3",
+    "ProducerCountry": "GH",
+    "Area": 12,
+    "plot_id": "GH-003"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -2.121234,
+     6.298765
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "ProducerName": "Coop B Farmer 4",
+    "ProducerCountry": "CIV",
+    "Area": "1.8 ha",
+    "plot_id": "CI-004"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     6.123456,
+     -5.4321
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "ProducerName": "Ranch C",
+    "ProducerCountry": "BR",
+    "plot_id": "BR-005"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       -63.015188,
+       -9.514713
+      ],
+      [
+       -63.008812,
+       -9.509287
+      ],
+      [
+       -63.008812,
+       -9.514713
+      ],
+      [
+       -63.015188,
+       -9.509287
+      ],
+      [
+       -63.015188,
+       -9.514713
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "ProducerName": "Ranch C",
+    "ProducerCountry": "BR",
+    "plot_id": "BR-006"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       -63.009099,
+       -9.50907
+      ],
+      [
+       -63.000901,
+       -9.50907
+      ],
+      [
+       -63.000901,
+       -9.50093
+      ],
+      [
+       -63.009099,
+       -9.50093
+      ],
+      [
+       -63.009099,
+       -9.50907
+      ]
+     ],
+     [
+      [
+       -63.005911,
+       -9.505904
+      ],
+      [
+       -63.005911,
+       -9.504096
+      ],
+      [
+       -63.004089,
+       -9.504096
+      ],
+      [
+       -63.004089,
+       -9.505904
+      ],
+      [
+       -63.005911,
+       -9.505904
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "ProducerName": "Estate D",
+    "ProducerCountry": "ID",
+    "plot_id": "ID-007"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       101.511222,
+       0.513475,
+       35.0
+      ],
+      [
+       101.513468,
+       0.513475,
+       35.0
+      ],
+      [
+       101.513468,
+       0.511215,
+       35.0
+      ],
+      [
+       101.511222,
+       0.511215,
+       35.0
+      ],
+      [
+       101.511222,
+       0.513475,
+       35.0
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "ProducerName": "Estate D",
+    "ProducerCountry": "ID",
+    "plot_id": "ID-008"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      101.52,
+      0.52
+     ],
+     [
+      101.521,
+      0.521
+     ],
+     [
+      101.522,
+      0.5205
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "ProducerName": "Coop A Farmer 1",
+    "ProducerCountry": "GH",
+    "plot_id": "GH-009"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       -2.105325,
+       6.300511
+      ],
+      [
+       -2.103699,
+       6.300511
+      ],
+      [
+       -2.103699,
+       6.301957
+      ],
+      [
+       -2.105325,
+       6.301957
+      ],
+      [
+       -2.105325,
+       6.300511
+      ]
+     ]
+    ]
+   }
+  }
+ ]
+}

@@ -206,6 +206,18 @@
           "number",
           "null"
         ]
+      },
+      "forest2020Source": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "jrcError": {
+        "type": [
+          "string",
+          "null"
+        ]
       }
     }
   },
@@ -222,6 +234,7 @@
           "geometryType",
           "areaHa",
           "forest2020Pct",
+          "forest2020Source",
           "lossPost2020Ha",
           "forestLossPost2020Ha",
           "fixCount",
@@ -277,6 +290,10 @@
           "pdfUrl": {
             "label": "Evidence PDF",
             "format": "link"
+          },
+          "forest2020Source": {
+            "label": "Forest 2020 source",
+            "format": "text"
           }
         }
       }

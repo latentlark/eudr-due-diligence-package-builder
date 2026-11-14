@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2"><Document><name>Supplier E cocoa plots</name>
+<Placemark><name>CIV-K1</name><ExtendedData><Data name="farmer"><value>Coop E Farmer 1</value></Data><Data name="country"><value>CI</value></Data></ExtendedData>
+ <Polygon><outerBoundaryIs><LinearRing><coordinates>-5.513249,6.211441,0 -5.511441,6.211441,0 -5.511441,6.213249,0 -5.513249,6.213249,0 -5.513249,6.211441,0</coordinates></LinearRing></outerBoundaryIs></Polygon></Placemark>
+<Placemark><name>CIV-K2</name><ExtendedData><Data name="farmer"><value>Coop E Farmer 2</value></Data><Data name="country"><value>CI</value></Data></ExtendedData>
+ <Polygon><outerBoundaryIs><LinearRing><coordinates>-5.525263,6.221647,0 -5.521649,6.221647,0 -5.521649,6.225265,0 -5.525263,6.225265,0 -5.525263,6.221647,0</coordinates></LinearRing></outerBoundaryIs>
+ <innerBoundaryIs><LinearRing><coordinates>-5.523908,6.223004,0 -5.523004,6.223004,0 -5.523004,6.223908,0 -5.523908,6.223908,0 -5.523908,6.223004,0</coordinates></LinearRing></innerBoundaryIs></Polygon></Placemark>
+<Placemark><name>CIV-K3</name><ExtendedData><Data name="farmer"><value>Coop E Farmer 3</value></Data><Data name="country"><value>CI</value></Data></ExtendedData>
+ <LineString><coordinates>-5.535245,6.233889,0 -5.533889,6.233889,0 -5.533889,6.235245,0 -5.535245,6.235245,0 -5.535245,6.233889,0</coordinates></LineString></Placemark>
+<Placemark><name>CIV-K4</name><ExtendedData><Data name="farmer"><value>Coop E Farmer 4</value></Data><Data name="country"><value>CI</value></Data><Data name="hectares"><value>6.5</value></Data></ExtendedData>
+ <Point><coordinates>-5.556789,6.256789,0</coordinates></Point></Placemark>
+<Placemark><name>CIV-K5</name><ExtendedData><Data name="farmer"><value>Coop E Farmer 5</value></Data><Data name="country"><value>CI</value></Data></ExtendedData>
+ <Polygon><outerBoundaryIs><LinearRing><coordinates>-5.546356,6.24509,0 -5.545,6.24509,0 -5.545,6.246266,0 -5.546356,6.246266,0</coordinates></LinearRing></outerBoundaryIs></Polygon></Placemark>
+</Document></kml>

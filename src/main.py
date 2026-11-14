@@ -70,4 +70,8 @@ async def main() -> None:
             f"{summary['plotsProcessed']} plots: {summary['risk']['high_risk']} high risk, {summary['risk']['needs_review']} review, "
             f"{summary['risk']['likely_compliant']} likely compliant; {summary['cleanPlots']} in the clean GeoJSON"
             + (f"; {summary['plotsSkippedTimeLimit']} not processed (time budget, not charged)" if summary.get('plotsSkippedTimeLimit') else '')
-            + ("; forest maps unreachable, unscreened plots not charged" if summary.get('screeningSourceDown') else ''), is_terminal=True)
+            + (f"; {summary['plotsNotScreenedMapError']} not screened (forest maps unreachable, not charged)"
+               if summary.get('plotsNotScreenedMapError') else '')
+            + (f"; {(summary.get('forest2020Sources') or {}).get('hansen_treecover2000_minus_loss')} screened with the Hansen "
+               "fallback forest map (JRC unavailable)" if (summary.get('forest2020Sources') or {}).get('hansen_treecover2000_minus_loss') else ''),
+            is_terminal=True)
