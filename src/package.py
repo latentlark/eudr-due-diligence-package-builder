@@ -6,6 +6,7 @@ import inspect
 import io
 import json
 import re
+import threading
 import time
 import zipfile
 from datetime import datetime, timezone
@@ -26,6 +27,30 @@ Put = Callable[[str, bytes, str], Awaitable[None]]
 Push = Callable[[dict], Awaitable[None]]
 Charge = Callable[[int], Awaitable[bool]]   # returns False when the user's max charge is reached
 Url = Callable[[str], str | None]
+
+
+async def _in_daemon(fn, *args):
+    """Run a blocking call in a daemon thread. Unlike asyncio.to_thread, a remote raster read that hangs cannot
+    keep the process alive at exit (the default executor joins its threads), so the run still ends on time."""
+    loop = asyncio.get_running_loop()
+    fut = loop.create_future()
+
+    def done(ok: bool, val) -> None:
+        if not fut.done():
+            fut.set_result(val) if ok else fut.set_exception(val)
+
+    def run() -> None:
+        try:
+            res, ok = fn(*args), True
+        except BaseException as e:  # noqa: BLE001
+            res, ok = e, False
+        try:
+            loop.call_soon_threadsafe(done, ok, res)
+        except RuntimeError:  # loop already closed: nobody is waiting any more
+            pass
+
+    threading.Thread(target=run, daemon=True).start()
+    return await fut
 
 
 def key_safe(s: str) -> str:
@@ -142,7 +167,7 @@ async def build_package(cfg: dict, sources: list[tuple[str, bytes]], put: Put, p
             if do_screen and plot.get('screenShape') is not None:
                 per_plot = PLOT_SCREEN_TIMEOUT if left is None else max(5.0, min(PLOT_SCREEN_TIMEOUT, left))
                 try:
-                    sr = await asyncio.wait_for(asyncio.to_thread(screener.screen, plot['screenShape']), timeout=per_plot)
+                    sr = await asyncio.wait_for(_in_daemon(screener.screen, plot['screenShape']), timeout=per_plot)
                 except asyncio.TimeoutError:
                     from .screening import ScreenResult
                     # A read this slow means the public forest maps are degraded: stop screening the rest (circuit
@@ -185,7 +210,10 @@ async def build_package(cfg: dict, sources: list[tuple[str, bytes]], put: Put, p
         await asyncio.gather(*(one(i, p) for i, p in enumerate(plots)))
     finally:
         if own_screener and screener is not None:
-            await asyncio.to_thread(screener.close)
+            try:
+                await asyncio.wait_for(_in_daemon(screener.close), timeout=10)
+            except Exception:  # noqa: BLE001 - never fail the package on cleanup
+                pass
 
     done = [p for p in plots if p.get('row')]
     clean = [p for p in done if p['geometryStatus'] != 'needs_attention' and p.get('geojson')]
