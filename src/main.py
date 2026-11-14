@@ -61,6 +61,11 @@ async def main() -> None:
             await Actor.set_status_message(msg)
 
         summary = await build_package(cfg, sources, put, push, charge, url, log=Actor.log.info, progress=progress)
+        if not summary.get('plotsProcessed'):
+            # Never finish with an empty dataset: explain why nothing was processed (free row).
+            await Actor.push_data({'status': 'no_plots', 'charged': False, 'inputProblems': summary.get('inputProblems'),
+                                   'error': 'No usable plots found in the input. Check the file format (GeoJSON, KML, CSV with '
+                                            'lat/lon or WKT) and see inputProblems / FIX_LOG.json.'})
         await Actor.set_status_message(
             f"{summary['plotsProcessed']} plots: {summary['risk']['high_risk']} high risk, {summary['risk']['needs_review']} review, "
             f"{summary['risk']['likely_compliant']} likely compliant; {summary['cleanPlots']} in the clean GeoJSON"
