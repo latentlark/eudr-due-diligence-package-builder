@@ -155,3 +155,14 @@ def test_both_sources_down_not_charged(tmp_path):
     assert len(rows) == 5 and all(r['riskFlag'] == 'not_screened' for r in rows)
     assert charges == [] and summary['plotsNotScreenedMapError'] == 5 and summary['plotsCharged'] == 0
     s.close()
+
+
+def test_hidden_fallback_switch(fake_rasters, tmp_path, monkeypatch):
+    jrc, hdir = _fallback_rasters(fake_rasters, tmp_path)
+    import src.package as P
+    monkeypatch.setattr(P, 'Screener', lambda: Screener(jrc_url=jrc, hansen_base=hdir))
+    gj = {'type': 'FeatureCollection', 'features': [
+        {'type': 'Feature', 'properties': {'plotId': 'HI', 'ProducerCountry': 'GH'}, 'geometry': box(-2.14, 6.31, -2.12, 6.33).__geo_interface__}]}
+    summary, store, rows, charges = _run({'geojson': gj, 'commodity': 'cocoa', '_forestSource': 'fallback', 'generatePdf': False}, [])
+    assert rows[0]['forest2020Source'] == 'hansen_treecover2000_minus_loss' and rows[0]['riskFlag'] == 'high_risk'
+    assert summary['jrcUnavailable'] and len(charges) == 1

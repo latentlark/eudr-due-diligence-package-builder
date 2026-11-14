@@ -66,6 +66,10 @@ async def main() -> None:
             await Actor.push_data({'status': 'no_plots', 'charged': False, 'inputProblems': summary.get('inputProblems'),
                                    'error': 'No usable plots found in the input. Check the file format (GeoJSON, KML, CSV with '
                                             'lat/lon or WKT) and see inputProblems / FIX_LOG.json.'})
+        if not summary.get('plotsProcessed'):
+            await Actor.set_status_message('No usable plots found in the input (nothing charged): check the file format '
+                                           '(GeoJSON, KML, CSV with lat/lon or WKT) and see the dataset row.', is_terminal=True)
+            return
         await Actor.set_status_message(
             f"{summary['plotsProcessed']} plots: {summary['risk']['high_risk']} high risk, {summary['risk']['needs_review']} review, "
             f"{summary['risk']['likely_compliant']} likely compliant; {summary['cleanPlots']} in the clean GeoJSON"

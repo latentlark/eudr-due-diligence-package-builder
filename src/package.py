@@ -134,6 +134,8 @@ async def build_package(cfg: dict, sources: list[tuple[str, bytes]], put: Put, p
     own_screener = screener is None and do_screen
     if own_screener:
         screener = Screener()
+        if cfg.get('_forestSource') == 'fallback':  # hidden test switch: exercise the backup forest map
+            screener.mark_jrc_down('JRC skipped by test switch _forestSource=fallback')
     sem = asyncio.Semaphore(int(cfg.get('concurrency', 4)))
     stop = asyncio.Event()
     rows: list[dict] = []
