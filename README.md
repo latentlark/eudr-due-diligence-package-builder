@@ -68,9 +68,10 @@ The clean file is re-checked by an independent validator before it is saved (`cl
 |---|---|---|---|
 | Forest on 31 Dec 2020 | EC JRC Global Forest Cover 2020, **V4** (single global Cloud-Optimized GeoTIFF on the JRC open-data server) | ~10 m | % and ha of the plot that was forest at the EUDR cut-off |
 | Tree-cover loss 2021-2025 | Hansen/UMD/Google/USGS/NASA **Global Forest Change GFC-2025-v1.13**, `lossyear` | ~30 m | ha of loss after the cut-off, per year |
-| Forest on 31 Dec 2020, **backup** | Hansen/UMD GFC-2025-v1.13 `treecover2000` at 10% canopy or more (the FAO forest threshold) minus any loss in 2001-2020 | ~30 m | Used only for plots where the JRC server is slow or unreachable |
+| Forest on 31 Dec 2020, **backup 1** | The same JRC GFC2020 map (release v2020.3) as hosted by **Global Forest Watch**, web-map tiles at zoom 14 | ~10 m | Plots where the JRC server is slow or unreachable |
+| Forest on 31 Dec 2020, **backup 2** | Hansen/UMD GFC-2025-v1.13 `treecover2000` at 10% canopy or more (the FAO forest threshold) minus any loss in 2001-2020 | ~30 m | Only if the JRC server and the GFW copy are both unreachable |
 
-**Backup forest map.** The JRC open-data server is sometimes slow or unreachable. When that happens, the plot is still screened with the backup forest-2020 layer above, read from the same public Google Cloud bucket as the loss data (CC BY 4.0). Every row says which map was used in `forest2020Source` (`jrc_gfc2020_v4` or `hansen_treecover2000_minus_loss`), with the reason in `jrcError`, and the PDF and `SUMMARY.json` (`forest2020Sources`) say so too. The backup is coarser and does not count regrowth, so for filing, re-run fallback plots later to get the JRC figure. A plot is `not_screened` and free only if both sources fail.
+**Backup forest maps.** The JRC open-data server is sometimes slow or unreachable. When that happens, the plot is still screened: first with the Global Forest Watch copy of the JRC map (same method, an earlier release; on a 120-plot test it gave the same flag as JRC V4 for 114 plots), and only if that also fails with the Hansen tree-cover layer. The Hansen layer counts tree crops such as cocoa and coffee as forest, so it flags many more plots for review in agroforestry regions. Every row says which map was used in `forest2020Source` (`jrc_gfc2020_v4`, `jrc_gfc2020_gfw_mirror` or `hansen_treecover2000_minus_loss`), with the reason in `jrcError` / `gfwError`. The PDF and `SUMMARY.json` (`forest2020Sources`) say so too. For filing, re-run backup-screened plots later to get the JRC V4 figure. A plot is `not_screened` and free only if every source fails.
 
 Both are read with HTTP range requests, so only a few hundred kB around each plot are downloaded. No account or key. Points are screened as a circle with the declared area (4 ha if missing), and this is stated in the PDF.
 
@@ -79,7 +80,7 @@ Both are read with HTTP range requests, so only a few hundred kB around each plo
 - `high_risk`: forest in 2020 **and** loss after 2020 on at least 0.5 ha or 2% of the plot.
 - `needs_review`: any smaller overlap of 2020 forest and post-2020 loss, any post-2020 loss outside the 2020 forest map, at least 10% of the plot forested in 2020, unresolved geometry errors, or partial data.
 - `likely_compliant`: none of the above.
-- `not_screened`: no usable geometry, or neither the JRC map nor the backup could be read (not charged).
+- `not_screened`: no usable geometry, or none of the forest maps could be read (not charged).
 
 ## What comes out
 
@@ -174,7 +175,7 @@ If you only need the file fixed, the fixer is cheaper. If you need the whole pac
 
 **Why is the area different from my supplier's?** The Actor computes the geodesic area of the repaired polygon and writes that into `Area`; a difference above 10% is flagged.
 
-**Is my data shared?** Files stay in your own Apify storage under your retention settings. Only the public JRC and UMD map files are read (UMD files from Google Cloud Storage).
+**Is my data shared?** Files stay in your own Apify storage under your retention settings. Only public map files are read: JRC, UMD (from Google Cloud Storage) and, as a backup, the Global Forest Watch copy of the JRC map. Your plot coordinates are not sent anywhere: the Actor only requests the map tiles around them.
 
 **Can the GeoJSON go straight into TRACES?** That is what it is built for, but always check the result in the EU system's own import screen before filing.
 

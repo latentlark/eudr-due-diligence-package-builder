@@ -116,7 +116,7 @@ def test_fallback_when_jrc_unreachable(fake_rasters, tmp_path):
     from src.screening import SRC_FALLBACK, SRC_JRC
     jrc, hdir = _fallback_rasters(fake_rasters, tmp_path)
     th = {'highRiskMinHa': 0.5, 'highRiskPct': 2, 'reviewForestPct': 10}
-    s = Screener(jrc_url=str(tmp_path / 'missing-jrc.tif'), hansen_base=hdir)
+    s = Screener(jrc_url=str(tmp_path / 'missing-jrc.tif'), hansen_base=hdir, gfw_tiles=None)
     hi = s.screen(box(-2.14, 6.31, -2.12, 6.33))
     assert hi.status == 'ok' and hi.forest2020Source == SRC_FALLBACK and hi.jrcError
     assert hi.forest2020Pct > 99 and hi.forestLossPost2020Pct > 99
@@ -137,7 +137,7 @@ def test_fallback_only_and_charges(fake_rasters, tmp_path):
     gj = {'type': 'FeatureCollection', 'features': [
         {'type': 'Feature', 'properties': {'plotId': 'HI', 'ProducerCountry': 'GH'}, 'geometry': box(-2.14, 6.31, -2.12, 6.33).__geo_interface__},
         {'type': 'Feature', 'properties': {'plotId': 'OK', 'ProducerCountry': 'GH'}, 'geometry': box(-2.08, 6.21, -2.06, 6.23).__geo_interface__}]}
-    s = Screener(jrc_url=str(tmp_path / 'missing-jrc.tif'), hansen_base=hdir)
+    s = Screener(jrc_url=str(tmp_path / 'missing-jrc.tif'), hansen_base=hdir, gfw_tiles=None)
     summary, store, rows, charges = _run({'geojson': gj, 'commodity': 'cocoa'}, [], screener=s)
     assert {r['plotId']: r['riskFlag'] for r in rows} == {'HI': 'high_risk', 'OK': 'likely_compliant'}
     assert all(r['forest2020Source'] == 'hansen_treecover2000_minus_loss' for r in rows)
@@ -150,7 +150,7 @@ def test_both_sources_down_not_charged(tmp_path):
     gj = {'type': 'FeatureCollection', 'features': [
         {'type': 'Feature', 'properties': {'plotId': f'P{i}', 'ProducerCountry': 'GH'},
          'geometry': box(-2.14 + i * 0.01, 6.31, -2.135 + i * 0.01, 6.315).__geo_interface__} for i in range(5)]}
-    s = Screener(jrc_url=str(tmp_path / 'no-jrc.tif'), hansen_base='https://127.0.0.1:9/')
+    s = Screener(jrc_url=str(tmp_path / 'no-jrc.tif'), hansen_base='https://127.0.0.1:9/', gfw_tiles='http://127.0.0.1:9/{z}/{x}/{y}.png')
     summary, store, rows, charges = _run({'geojson': gj, 'commodity': 'cocoa', 'generatePdf': False, 'concurrency': 1}, [], screener=s)
     assert len(rows) == 5 and all(r['riskFlag'] == 'not_screened' for r in rows)
     assert charges == [] and summary['plotsNotScreenedMapError'] == 5 and summary['plotsCharged'] == 0
@@ -160,9 +160,58 @@ def test_both_sources_down_not_charged(tmp_path):
 def test_hidden_fallback_switch(fake_rasters, tmp_path, monkeypatch):
     jrc, hdir = _fallback_rasters(fake_rasters, tmp_path)
     import src.package as P
-    monkeypatch.setattr(P, 'Screener', lambda: Screener(jrc_url=jrc, hansen_base=hdir))
+    monkeypatch.setattr(P, 'Screener', lambda: Screener(jrc_url=jrc, hansen_base=hdir, gfw_tiles='http://127.0.0.1:9/{z}/{x}/{y}.png'))
     gj = {'type': 'FeatureCollection', 'features': [
         {'type': 'Feature', 'properties': {'plotId': 'HI', 'ProducerCountry': 'GH'}, 'geometry': box(-2.14, 6.31, -2.12, 6.33).__geo_interface__}]}
-    summary, store, rows, charges = _run({'geojson': gj, 'commodity': 'cocoa', '_forestSource': 'fallback', 'generatePdf': False}, [])
+    summary, store, rows, charges = _run({'geojson': gj, 'commodity': 'cocoa', '_forestSource': 'hansen', 'generatePdf': False}, [])
     assert rows[0]['forest2020Source'] == 'hansen_treecover2000_minus_loss' and rows[0]['riskFlag'] == 'high_risk'
     assert summary['jrcUnavailable'] and len(charges) == 1
+
+
+def _gfw_server():
+    """Local stand-in for the GFW tile server: opaque (forest) where lon < -2.1, like the fake JRC map."""
+    import http.server
+    import io as _io
+    import threading
+    from PIL import Image
+
+    class H(http.server.BaseHTTPRequestHandler):
+        def do_GET(self):
+            z, x, y = (int(v) for v in self.path.strip('/').split('.')[0].split('/'))
+            n = 256 * 2 ** z
+            lon = (x * 256 + np.arange(256) + 0.5) / n * 360 - 180
+            a = np.zeros((256, 256, 4), dtype=np.uint8)
+            a[:, lon < -2.1, 3] = 255
+            buf = _io.BytesIO()
+            Image.fromarray(a, 'RGBA').save(buf, 'PNG')
+            self.send_response(200)
+            self.send_header('Content-Type', 'image/png')
+            self.end_headers()
+            self.wfile.write(buf.getvalue())
+
+        def log_message(self, *a):
+            pass
+
+    srv = http.server.ThreadingHTTPServer(('127.0.0.1', 0), H)
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    return srv
+
+
+def test_gfw_mirror_when_jrc_down(fake_rasters, tmp_path):
+    from src.screening import SRC_GFW
+    jrc, hdir = fake_rasters
+    srv = _gfw_server()
+    try:
+        s = Screener(jrc_url=str(tmp_path / 'missing.tif'), hansen_base=hdir,
+                     gfw_tiles=f'http://127.0.0.1:{srv.server_address[1]}/{{z}}/{{x}}/{{y}}.png')
+        th = {'highRiskMinHa': 0.5, 'highRiskPct': 2, 'reviewForestPct': 10}
+        hi = s.screen(box(-2.14, 6.31, -2.12, 6.33))
+        assert hi.forest2020Source == SRC_GFW and hi.forest2020Pct > 99 and hi.forestLossPost2020Pct > 99
+        flag, reasons = classify(hi, True, False, th)
+        assert flag == 'high_risk' and 'Global Forest Watch' in reasons[0]
+        clean = s.screen(box(-2.08, 6.21, -2.06, 6.23))
+        assert clean.forest2020Source == SRC_GFW and clean.forest2020Ha == 0
+        assert s.source_counts[SRC_GFW] == 2 and not s.gfw_down
+        s.close()
+    finally:
+        srv.shutdown()

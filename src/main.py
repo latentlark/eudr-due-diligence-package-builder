@@ -76,6 +76,8 @@ async def main() -> None:
             + (f"; {summary['plotsSkippedTimeLimit']} not processed (time budget, not charged)" if summary.get('plotsSkippedTimeLimit') else '')
             + (f"; {summary['plotsNotScreenedMapError']} not screened (forest maps unreachable, not charged)"
                if summary.get('plotsNotScreenedMapError') else '')
+            + (f"; {(summary.get('forest2020Sources') or {}).get('jrc_gfc2020_gfw_mirror')} screened with the GFW copy of the JRC map "
+               "(JRC server unavailable)" if (summary.get('forest2020Sources') or {}).get('jrc_gfc2020_gfw_mirror') else '')
             + (f"; {(summary.get('forest2020Sources') or {}).get('hansen_treecover2000_minus_loss')} screened with the Hansen "
-               "fallback forest map (JRC unavailable)" if (summary.get('forest2020Sources') or {}).get('hansen_treecover2000_minus_loss') else ''),
+               "fallback forest map (JRC maps unavailable)" if (summary.get('forest2020Sources') or {}).get('hansen_treecover2000_minus_loss') else ''),
             is_terminal=True)

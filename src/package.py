@@ -16,7 +16,7 @@ from . import dds as D
 from .geometry import cross_plot_checks, repair_plot
 from .parse import parse_any, parse_geojson
 from .report import build_pdf
-from .screening import (FALLBACK_NAME, HANSEN_BASE, HANSEN_LAST_YEAR, HANSEN_NAME, HANSEN_VERSION, JRC_NAME, JRC_URL, SRC_FALLBACK,
+from .screening import (FALLBACK_NAME, GFW_NAME, GFW_TILES, HANSEN_BASE, HANSEN_LAST_YEAR, HANSEN_NAME, HANSEN_VERSION, JRC_NAME, JRC_URL, SRC_FALLBACK,
                         SRC_JRC, ScreenResult, Screener, classify)
 from .validate import validate_fc
 
@@ -134,8 +134,10 @@ async def build_package(cfg: dict, sources: list[tuple[str, bytes]], put: Put, p
     own_screener = screener is None and do_screen
     if own_screener:
         screener = Screener()
-        if cfg.get('_forestSource') == 'fallback':  # hidden test switch: exercise the backup forest map
-            screener.mark_jrc_down('JRC skipped by test switch _forestSource=fallback')
+        if cfg.get('_forestSource') in ('mirror', 'hansen'):  # hidden test switch: exercise the backup forest maps
+            screener.mark_jrc_down(f"JRC skipped by test switch _forestSource={cfg['_forestSource']}")
+            if cfg['_forestSource'] == 'hansen':
+                screener.gfw_down = 'GFW mirror skipped by test switch _forestSource=hansen'
     sem = asyncio.Semaphore(int(cfg.get('concurrency', 4)))
     stop = asyncio.Event()
     rows: list[dict] = []
@@ -257,15 +259,17 @@ async def build_package(cfg: dict, sources: list[tuple[str, bytes]], put: Put, p
         'plotsCharged': charged, 'plotsSkippedByCap': skipped, 'plotsSkippedTimeLimit': timed_out,
         'screeningSourceDown': (screener.down if screener is not None else None), 'inputProblems': problems,
         'plotsNotScreenedMapError': sum(r.get('screeningStatus') == 'error' for r in rows),
-        'forest2020Sources': ({SRC_JRC: screener.source_counts[SRC_JRC], SRC_FALLBACK: screener.source_counts[SRC_FALLBACK]}
-                              if screener is not None else None),
+        'forest2020Sources': (dict(screener.source_counts) if screener is not None else None),
+        'gfwMirrorUnavailable': (screener.gfw_down if screener is not None else None),
         'jrcUnavailable': (screener.jrc_down if screener is not None else None),
         'geometry': {s: sum(p['geometryStatus'] == s for p in done) for s in ('ok', 'fixed', 'needs_attention')},
         'risk': flags, 'cleanFiles': clean_keys, 'cleanPlots': len(clean), 'needsAttentionPlots': len(attention),
         'cleanFileValidation': validation or 'passed', 'ddsDraftParts': len(dds), 'pdfCount': len(pdf_keys),
         'dataSources': {'forest2020': {'name': JRC_NAME, 'url': JRC_URL},
+                        'forest2020Mirror': {'name': GFW_NAME, 'url': GFW_TILES,
+                                             'usedWhen': 'the JRC server is slow or unreachable; see forest2020Source per plot'},
                         'forest2020Fallback': {'name': FALLBACK_NAME, 'baseUrl': HANSEN_BASE,
-                                               'usedWhen': 'the JRC server is slow or unreachable; see forest2020Source per plot'},
+                                               'usedWhen': 'both the JRC server and the GFW mirror are unreachable'},
                         'lossAfter2020': {'name': HANSEN_NAME, 'version': HANSEN_VERSION, 'baseUrl': HANSEN_BASE, 'lastYear': HANSEN_LAST_YEAR}},
         'thresholds': th, 'seconds': round(time.time() - t_start, 2),
         'disclaimer': 'Screening evidence only, not legal advice. The operator remains responsible for the EUDR due-diligence conclusion.',
@@ -322,7 +326,7 @@ def make_row(plot: dict, sr, flag: str, reasons: list[str]) -> dict:
     if sr is not None:
         row.update({k: getattr(sr, k) for k in ('forest2020Ha', 'forest2020Pct', 'lossPost2020Ha', 'lossPost2020Pct',
                                                 'forestLossPost2020Ha', 'forestLossPost2020Pct', 'lossPre2021Ha', 'lossByYear',
-                                                'analysedHa', 'gridResolutionM', 'hansenTiles', 'forest2020Source', 'jrcError')})
+                                                'analysedHa', 'gridResolutionM', 'hansenTiles', 'forest2020Source', 'jrcError', 'gfwError')})
         row.update({'screeningStatus': sr.status, 'screeningError': sr.error, 'screenedAt': sr.readAt, 'screeningSeconds': sr.seconds})
     else:
         row['screeningStatus'] = 'skipped'

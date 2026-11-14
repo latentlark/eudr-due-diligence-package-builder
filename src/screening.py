@@ -8,8 +8,10 @@
     Free, no key, CC BY 4.0.
 Both are read with GDAL /vsicurl/ windowed reads, so only the bytes around each plot are downloaded.
 
-Backup forest-2020 layer (used per plot when the JRC server is slow or unreachable, labelled forest2020Source):
-  * Hansen/UMD treecover2000 (same Google Cloud bucket and licence as lossyear): canopy >= 10% in 2000 (the FAO /
+Backup forest-2020 layers, tried in order per plot when the JRC server is slow or unreachable (forest2020Source):
+  1. The same JRC GFC2020 map as hosted by Global Forest Watch (version v2020.3, 10 m, web-map tiles at zoom 14 from
+     tiles.globalforestwatch.org; opaque pixel = forest). Same method as JRC, an earlier release than V4.
+  2. Hansen/UMD treecover2000 (same Google Cloud bucket and licence as lossyear): canopy >= 10% in 2000 (the FAO /
     EUDR forest canopy threshold) minus any tree-cover loss in 2001-2020 = forest on 31 Dec 2020 (~30 m).
     Coarser than JRC and it does not net out regrowth, so it is labelled as a fallback in the row, PDF and summary.
 """
@@ -38,6 +40,12 @@ FALLBACK_CANOPY_PCT = 10   # FAO forest definition used by the EUDR: canopy cove
 FALLBACK_NAME = (f'Hansen/UMD {HANSEN_VERSION} treecover2000 >= {FALLBACK_CANOPY_PCT}% canopy minus 2001-2020 loss '
                  '(fallback for the JRC map)')
 SRC_JRC, SRC_FALLBACK = 'jrc_gfc2020_v4', 'hansen_treecover2000_minus_loss'
+SRC_GFW = 'jrc_gfc2020_gfw_mirror'
+GFW_VERSION = 'v2020.3'
+GFW_TILES = f'https://tiles.globalforestwatch.org/jrc_global_forest_cover/{GFW_VERSION}/default/{{z}}/{{x}}/{{y}}.png'
+GFW_NAME = f'EC JRC Global Forest Cover 2020 ({GFW_VERSION}) as hosted by Global Forest Watch (backup for the JRC server)'
+GFW_MAX_TILES = 64         # zoom out (decimate) for very large plots
+GFW_MAX_FAILS = 2
 JRC_LOCK_WAIT = 25.0       # secs a plot waits for a busy (possibly hung) JRC read before using the fallback
 JRC_PLOT_BUDGET = 30.0     # secs one plot may spend on the JRC read before switching the run to the fallback
 JRC_MAX_FAILS = 2          # consecutive JRC failures before every later plot goes straight to the fallback
@@ -93,6 +101,7 @@ class ScreenResult:
     readAt: str | None = None
     forest2020Source: str | None = None   # SRC_JRC or SRC_FALLBACK
     jrcError: str | None = None           # why the JRC map was not used for this plot
+    gfwError: str | None = None           # why the GFW-hosted JRC copy was not used (Hansen fallback)
     # arrays for the thumbnail (not serialised)
     forest: Any = None
     loss: Any = None
@@ -108,7 +117,7 @@ class Screener:
     so per-thread handles would multiply memory. Stats and PDFs still run in parallel outside the lock.
     """
 
-    def __init__(self, jrc_url: str = JRC_URL, hansen_base: str = HANSEN_BASE):
+    def __init__(self, jrc_url: str = JRC_URL, hansen_base: str = HANSEN_BASE, gfw_tiles: str | None = GFW_TILES):
         self.jrc_url = jrc_url
         self.hansen_base = hansen_base
         self._lock = threading.Lock()       # Hansen tiles
@@ -116,7 +125,10 @@ class Screener:
         self._jrc_ds = None
         self._jrc_fails = 0
         self.jrc_down: str | None = None    # JRC unusable for this run: later plots use the Hansen fallback
-        self.source_counts = {SRC_JRC: 0, SRC_FALLBACK: 0}
+        self.source_counts = {SRC_JRC: 0, SRC_GFW: 0, SRC_FALLBACK: 0}
+        self.gfw_tiles = gfw_tiles
+        self._gfw_fails = 0
+        self.gfw_down: str | None = None
         self._h: dict[str, Any] = {}
         self._missing_tiles: set[str] = set()
         self._fails = 0             # consecutive read errors (circuit breaker)
@@ -193,8 +205,11 @@ class Screener:
         if bounds is None:
             return
         grid = None
+        src = SRC_JRC
         if not fallback_only and not self.jrc_down:
             grid = self._jrc_with_budget(bounds, res)
+        if grid is None and not self.gfw_down and self.gfw_tiles:
+            grid, src = self._try_gfw(bounds, res), SRC_GFW
         with self._lock:
             if self.down:
                 res.status, res.error = 'error', self.down
@@ -202,7 +217,7 @@ class Screener:
             if grid is None:
                 self._read_fallback(bounds, res)
             else:
-                self._read_loss(grid, res)
+                self._read_loss(grid, res, src)
         if res.forest is None:
             return
         self.source_counts[res.forest2020Source] += 1
@@ -271,6 +286,77 @@ class Screener:
         left, top = t.c + c0 * rx, t.f - r0 * ry
         return forest, left, top, gx, gy, out_shape, scale > 1
 
+    def _try_gfw(self, bounds, res: ScreenResult):
+        try:
+            grid = self._read_gfw(bounds)
+            self._gfw_fails = 0
+            return grid
+        except Exception as e:  # noqa: BLE001
+            res.gfwError = f'{type(e).__name__}: {e}'[:200]
+            self._gfw_fails += 1
+            if self._gfw_fails >= GFW_MAX_FAILS and not self.gfw_down:
+                self.gfw_down = f'GFW mirror unreachable ({res.gfwError[:120]})'
+            return None
+
+    def _read_gfw(self, bounds):
+        """JRC forest 2020 from the GFW web-map tiles (EPSG:3857, 256 px, alpha 255 = forest) on a ~10 m lat/lon grid."""
+        import io
+        from concurrent.futures import ThreadPoolExecutor
+
+        import httpx
+        from PIL import Image
+        minx, miny, maxx, maxy = bounds
+
+        def merc(lon, lat, z):
+            n = 256 * 2 ** z
+            lat = np.clip(lat, -85.0511, 85.0511)
+            x = (np.asarray(lon) + 180.0) / 360.0 * n
+            y = (1 - np.log(np.tan(np.radians(lat)) + 1 / np.cos(np.radians(lat))) / math.pi) / 2 * n
+            return x, y
+
+        z = 14
+        while True:
+            x0, y0 = merc(minx, maxy, z)
+            x1, y1 = merc(maxx, miny, z)
+            tx0, ty0, tx1, ty1 = int(x0 // 256), int(y0 // 256), int(x1 // 256), int(y1 // 256)
+            if (tx1 - tx0 + 1) * (ty1 - ty0 + 1) <= GFW_MAX_TILES or z <= 8:
+                break
+            z -= 1
+        mosaic = np.zeros(((ty1 - ty0 + 1) * 256, (tx1 - tx0 + 1) * 256), dtype=bool)
+
+        def fetch(xy):
+            tx, ty = xy
+            r = cl.get(self.gfw_tiles.format(z=z, x=tx, y=ty))
+            if r.status_code == 404:
+                return xy, None  # no data (ocean): no forest
+            r.raise_for_status()
+            if not r.headers.get('content-type', '').startswith('image/'):
+                raise RuntimeError(f'GFW tile answered {r.headers.get("content-type")}')
+            return xy, np.array(Image.open(io.BytesIO(r.content)).convert('RGBA'))[..., 3] >= 128
+
+        with httpx.Client(follow_redirects=True, timeout=httpx.Timeout(15, connect=8),
+                          headers={'User-Agent': 'LatentLark-EUDR-Package-Builder/0.1 (+https://apify.com/latentlark)'}) as cl, \
+                ThreadPoolExecutor(8) as ex:
+            for (tx, ty), a in ex.map(fetch, [(x, y) for y in range(ty0, ty1 + 1) for x in range(tx0, tx1 + 1)]):
+                if a is not None:
+                    mosaic[(ty - ty0) * 256:(ty - ty0 + 1) * 256, (tx - tx0) * 256:(tx - tx0 + 1) * 256] = a
+        res_deg = 1 / 12000  # ~9 m, like the JRC COG
+        left = math.floor(minx / res_deg) * res_deg
+        top = math.ceil(maxy / res_deg) * res_deg
+        nx = max(1, int(math.ceil((maxx - left) / res_deg)))
+        ny = max(1, int(math.ceil((top - miny) / res_deg)))
+        scale = max(1, math.ceil(max(nx, ny) / MAX_GRID_PX))
+        out_shape = (max(1, ny // scale), max(1, nx // scale))
+        gx, gy = nx * res_deg / out_shape[1], ny * res_deg / out_shape[0]
+        lons = left + (np.arange(out_shape[1]) + 0.5) * gx
+        lats = top - (np.arange(out_shape[0]) + 0.5) * gy
+        px, _ = merc(lons, np.zeros_like(lons), z)
+        _, py = merc(np.zeros_like(lats), lats, z)
+        cols = np.clip(np.floor(px).astype(int) - tx0 * 256, 0, mosaic.shape[1] - 1)
+        rows = np.clip(np.floor(py).astype(int) - ty0 * 256, 0, mosaic.shape[0] - 1)
+        forest = mosaic[np.ix_(rows, cols)]
+        return forest, left, top, gx, gy, out_shape, scale > 1 or z < 14
+
     def _sample(self, layer: str, lons, lats, out_shape, res: ScreenResult):
         """Hansen `layer` sampled at the analysis-grid pixel centres (nearest neighbour). None if no tile covers it."""
         out = np.zeros(out_shape, dtype=np.uint8)
@@ -309,12 +395,12 @@ class Screener:
         res._grid = (out_shape, lats, gx, gy)
         res.forest2020Source = source
 
-    def _read_loss(self, grid, res: ScreenResult) -> None:
+    def _read_loss(self, grid, res: ScreenResult, src: str = SRC_JRC) -> None:
         forest, left, top, gx, gy, out_shape, decimated = grid
         lons = left + (np.arange(out_shape[1]) + 0.5) * gx
         lats = top - (np.arange(out_shape[0]) + 0.5) * gy
         loss = self._sample('lossyear', lons, lats, out_shape, res)
-        self._finish_grid(res, forest, loss, left, top, gx, gy, out_shape, decimated, SRC_JRC)
+        self._finish_grid(res, forest, loss, left, top, gx, gy, out_shape, decimated, src)
 
     def _read_fallback(self, bounds, res: ScreenResult) -> None:
         """Forest 2020 from Hansen treecover2000 >= 10% minus 2001-2020 loss, on the native ~30 m Hansen grid."""
@@ -371,8 +457,8 @@ def classify(sr: ScreenResult | None, geometry_ok: bool, is_point: bool, th: dic
         return 'not_screened', [f"screening not possible: {sr.error if sr else 'screening disabled'}"]
     hi_ha, hi_pct = th.get('highRiskMinHa', 0.5), th.get('highRiskPct', 2.0)
     rv_forest = th.get('reviewForestPct', 10.0)
-    fsrc = 'Hansen 2000 canopy >= 10% minus 2001-2020 loss, used because the JRC map was unavailable' \
-        if sr.forest2020Source == SRC_FALLBACK else 'JRC'
+    fsrc = {SRC_FALLBACK: 'Hansen 2000 canopy >= 10% minus 2001-2020 loss, used because the JRC map was unavailable',
+            SRC_GFW: f'JRC {GFW_VERSION} via Global Forest Watch, used because the JRC server was unavailable'}.get(sr.forest2020Source, 'JRC')
     flag = 'likely_compliant'
     if sr.forestLossPost2020Ha >= hi_ha or sr.forestLossPost2020Pct >= hi_pct:
         flag = 'high_risk'

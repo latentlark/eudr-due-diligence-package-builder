@@ -13,7 +13,7 @@ from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import mm
 from reportlab.platypus import Image as RLImage, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
-from .screening import FALLBACK_NAME, HANSEN_BASE, HANSEN_NAME, HANSEN_VERSION, JRC_NAME, JRC_URL, SRC_FALLBACK
+from .screening import FALLBACK_NAME, GFW_NAME, GFW_TILES, HANSEN_BASE, HANSEN_NAME, HANSEN_VERSION, JRC_NAME, JRC_URL, SRC_FALLBACK, SRC_GFW
 
 FLAG_COLORS = {'likely_compliant': '#1a7f37', 'needs_review': '#b35900', 'high_risk': '#c62828', 'not_screened': '#555555'}
 FLAG_TEXT = {'likely_compliant': 'LIKELY COMPLIANT (screening)', 'needs_review': 'NEEDS REVIEW',
@@ -96,7 +96,8 @@ def build_pdf(row: dict[str, Any], plot: dict, sr, run_meta: dict) -> bytes:
     body = ParagraphStyle('body', parent=ss['BodyText'], fontSize=9, leading=11.5)
     flag = row.get('riskFlag', 'not_screened')
     fb = row.get('forest2020Source') == SRC_FALLBACK
-    flab = 'Hansen fallback' if fb else 'JRC'
+    gfw = row.get('forest2020Source') == SRC_GFW
+    flab = 'Hansen fallback' if fb else ('JRC via GFW' if gfw else 'JRC')
     el: list = [
         Paragraph(f"EUDR plot screening evidence: <b>{_esc(row['plotId'])}</b>", ss['Title']),
         Paragraph(f"<font color='{FLAG_COLORS[flag]}'><b>{FLAG_TEXT[flag]}</b></font> &nbsp; Geometry: <b>{row['geometryStatus']}</b>"
@@ -146,8 +147,12 @@ def build_pdf(row: dict[str, Any], plot: dict, sr, run_meta: dict) -> bytes:
               'Forest = canopy cover of at least 10% in 2000 (FAO forest canopy threshold) with no tree-cover loss in 2001-2020 '
               '(~30 m; coarser than JRC and does not count regrowth). Re-run later to get the JRC-based figure for filing. '
               'Citation: Hansen et al. (2013) Science 342:850-853. CC BY 4.0.')
+    gfw_src = (f'FOREST 2020 FROM THE BACKUP COPY: the JRC server could not be read ({row.get("jrcError") or "server unavailable"}). '
+               f'{GFW_NAME}. Tiles {GFW_TILES} at zoom 14 (~10 m), read {row.get("screenedAt") or "-"} UTC; opaque pixel = forest on '
+               '31 Dec 2020. Same JRC method, an earlier release than V4. Citation: European Commission, Joint Research Centre, '
+               'Global map of forest cover 2020; hosted by Global Forest Watch (globalforestwatch.org).')
     src = [
-        fb_src if fb else jrc_src,
+        fb_src if fb else (gfw_src if gfw else jrc_src),
         f'{HANSEN_NAME}. Tiles {", ".join(row.get("hansenTiles") or []) or "-"} from {HANSEN_BASE}. Values 21-{row.get("hansenLastYear", 25) - 2000} = loss in 2021-{row.get("hansenLastYear", "")}. '
         'Citation: Hansen et al. (2013) Science 342:850-853. CC BY 4.0.',
         ('Method: forest and loss are both read on the native Hansen 30 m grid. ' if fb else
